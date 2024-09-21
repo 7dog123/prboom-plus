@@ -91,9 +91,10 @@ int ST_SCALED_OFFSETX;
           (ST_NUMSTRAIGHTFACES+ST_NUMTURNFACES+ST_NUMSPECIALFACES)
 
 #define ST_NUMEXTRAFACES        2
+#define ST_NUMXDTHFACES         9
 
 #define ST_NUMFACES \
-          (ST_FACESTRIDE*ST_NUMPAINFACES+ST_NUMEXTRAFACES)
+          (ST_FACESTRIDE*ST_NUMPAINFACES+ST_NUMEXTRAFACES*ST_NUMEXTRAFACES)
 
 #define ST_TURNOFFSET           (ST_NUMSTRAIGHTFACES)
 #define ST_OUCHOFFSET           (ST_TURNOFFSET + ST_NUMTURNFACES)
@@ -101,6 +102,7 @@ int ST_SCALED_OFFSETX;
 #define ST_RAMPAGEOFFSET        (ST_EVILGRINOFFSET + 1)
 #define ST_GODFACE              (ST_NUMPAINFACES*ST_FACESTRIDE)
 #define ST_DEADFACE             (ST_GODFACE+1)
+#define ST_XDTHFACE             (ST_DEADFACE+1)
 
 // proff 08/18/98: Changed for high-res
 #define ST_FACESX               (ST_X+143)
@@ -307,6 +309,7 @@ static patchnum_t keys[NUMCARDS+3];
 
 // face status patches
 static patchnum_t faces[ST_NUMFACES];
+static int    have_xdthfaces;
 
 // face background
 static patchnum_t faceback; // CPhipps - single background, translated for different players
@@ -506,6 +509,21 @@ static int ST_calcPainOffset(void)
 //  dead > evil grin > turned head > straight ahead
 //
 
+static int ST_DeadFace(void)
+{
+	const int state = (plyr->mo->state - states) - mobjinfo[plyr->mo->type].xdeathstate;
+	
+	// [FG] support face gib animations as in the 3DO/Jaguar/PSX ports
+	if (have_xdthfaces && state >= 0)
+	{
+		// [FG] `state` is at least zero, if `have_xdthfaces` is zero,
+		// we will return `ST_XDTHFACE - 1` which is equal to `ST_DEADFACE`
+		return ST_XDTHFACE + MIN(state, have_xdthfaces - 1);
+	}
+	
+	return ST_DEADFACE;
+}
+
 static void ST_updateFaceWidget(void)
 {
   int         i;
@@ -521,7 +539,7 @@ static void ST_updateFaceWidget(void)
       if (!plyr->health)
         {
           priority = 9;
-          st_faceindex = ST_DEADFACE;
+          st_faceindex = ST_DeadFace();
           st_facecount = 1;
         }
     }
@@ -1046,6 +1064,14 @@ static void ST_loadGraphics(dboolean doload)
     }
   R_SetPatchNum(&faces[facenum++], "STFGOD0");
   R_SetPatchNum(&faces[facenum++], "STFDEAD0");
+  
+  // [FG] support face gib animations as in the 3DO/Jaguar/PSX ports
+  for (i = 0; i < ST_NUMXDTHFACES; i++)
+  {
+		sprintf(namebuf, "STFXDTH%d", i); // xdeathstate
+		R_SetPatchNum(&faces[facenum++], namebuf);
+  }
+  have_xdthfaces = i;
 
   // [FG] support widescreen status bar backgrounds
   ST_SetScaledWidth();
